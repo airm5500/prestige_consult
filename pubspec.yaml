@@ -1,0 +1,40 @@
+name: prestigeconsult
+description: "Application de consultation pour Prestige"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations: # Pour la localisation en français
+    sdk: flutter
+
+  # Gestion d'état
+  provider: ^6.1.2
+
+  # Réseau
+  http: ^1.2.1
+
+  # Stockage Local
+  shared_preferences: ^2.2.3
+
+  # UI Components
+  google_fonts: ^6.2.1
+  fl_chart: ^0.68.0
+  fluttertoast: ^8.2.6
+  shimmer: ^3.0.0
+
+  cupertino_icons: ^1.0.2
+
+  intl: any
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
