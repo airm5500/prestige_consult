@@ -263,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> with BaseScreenLogic {
             shape: BoxShape.circle,
             color: _currentPage == index
                 ? AppColors.primary
-                : Colors.grey.withOpacity(0.5),
+                : Colors.grey.shade400,
           ),
         );
       }),

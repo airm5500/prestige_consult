@@ -228,7 +228,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             msg: value ? "Modification activée" : "Modification désactivée",
                           );
                         },
-                        activeColor: Theme.of(context).primaryColor,
+                        activeTrackColor: Theme.of(context).primaryColor,
                       );
                     }
                 ),

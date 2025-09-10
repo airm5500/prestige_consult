@@ -30,7 +30,12 @@ dependencies:
 
   cupertino_icons: ^1.0.2
 
+
+
   intl: any
+  flutter_launcher_icons: ^0.14.4
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -38,3 +43,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/ # Assurez-vous que le dossier assets est déclaré
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21

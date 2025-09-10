@@ -6,7 +6,6 @@ import 'package:prestigeconsult/ui/screens/features/fiche_article/fiche_article_
 import 'package:prestigeconsult/ui/screens/features/recherche_article/recherche_article_screen.dart';
 import 'package:prestigeconsult/ui/screens/features/update_peremption/update_peremption_screen.dart';
 import 'package:prestigeconsult/ui/screens/home/home_screen.dart';
-import 'package:prestigeconsult/ui/screens/features/orders/order_receiving_screen.dart';
 import 'package:prestigeconsult/ui/screens/features/orders/order_list_screen.dart';
 import 'package:prestigeconsult/ui/screens/features/stock_entry/delivery_slip_list_screen.dart';
 

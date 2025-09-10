@@ -95,7 +95,7 @@ class InventoryReportScreen extends StatelessWidget {
                   rows: items.map((item) {
                     final discrepancy = item.quantiteComptee - item.stockTheorique;
                     return DataRow(
-                      color: MaterialStateProperty.all(getDiscrepancyColor(discrepancy)),
+                      color: WidgetStateProperty.all(getDiscrepancyColor(discrepancy)),
                       cells: [
                         DataCell(Text(item.produit.name)),
                         DataCell(Text(item.stockTheorique.toString())),
