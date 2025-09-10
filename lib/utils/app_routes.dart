@@ -8,6 +8,8 @@ import 'package:prestigeconsult/ui/screens/features/update_peremption/update_per
 import 'package:prestigeconsult/ui/screens/home/home_screen.dart';
 import 'package:prestigeconsult/ui/screens/features/orders/order_receiving_screen.dart';
 import 'package:prestigeconsult/ui/screens/features/orders/order_list_screen.dart';
+import 'package:prestigeconsult/ui/screens/features/stock_entry/delivery_slip_list_screen.dart';
+
 
 class AppRoutes {
   static const String login = '/login';
@@ -21,6 +23,7 @@ class AppRoutes {
   static const String updatePeremption = '/update-peremption';
   static const String orderList = '/order-list';
   static const String orderReceiving = '/order-receiving';
+  static const String deliverySlipList = '/delivery-slip-list';
 
   static final Map<String, WidgetBuilder> routes = {
     login: (context) => const LoginScreen(),
@@ -33,6 +36,7 @@ class AppRoutes {
     rechercheArticle: (context) => const RechercheArticleScreen(),
     updatePeremption: (context) => const UpdatePeremptionScreen(),
     orderList: (context) => const OrderListScreen(),
+    deliverySlipList: (context) => const DeliverySlipListScreen(),
     // orderReceiving: (context) => const OrderReceivingScreen(), // On le mettra en place à la prochaine étape
   };
 }

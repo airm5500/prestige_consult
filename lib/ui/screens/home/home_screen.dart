@@ -39,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> with BaseScreenLogic {
     MenuItem(title: 'Recherche & Historique', icon: Icons.search, route: AppRoutes.rechercheArticle),
     MenuItem(title: 'Mise à Jour Péremption', icon: Icons.date_range, route: AppRoutes.updatePeremption),
     MenuItem(title: 'Réception Commandes', icon: Icons.inventory, route: AppRoutes.orderList),
+    MenuItem(title: 'Contrôle Stock', icon: Icons.fact_check, route: AppRoutes.deliverySlipList),
     // Ajoutez de nouveaux menus ici
   ];
 
