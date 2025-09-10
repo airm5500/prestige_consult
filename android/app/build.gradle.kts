@@ -42,3 +42,13 @@ android {
 flutter {
     source = "../.."
 }
+
+// Ajouter ce bloc à la fin du fichier
+android.applicationVariants.all {
+    if (buildType.name == "release") {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "prestigeconsult-${versionName}.apk"
+        }
+    }
+}
