@@ -1,14 +1,21 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prestigeconsult/models/delivery_slip.dart';
 import 'package:prestigeconsult/models/delivery_slip_item.dart';
-// Importer l'écran de rapport que nous créerons à la fin
+import 'package:prestigeconsult/providers/app_config_provider.dart';
 import 'package:prestigeconsult/ui/screens/features/stock_entry/inventory_report_screen.dart';
-
 
 class StockCountScreen extends StatefulWidget {
   final DeliverySlip deliverySlip;
+  final bool isAlreadyControlled;
 
-  const StockCountScreen({super.key, required this.deliverySlip});
+  const StockCountScreen({
+    super.key,
+    required this.deliverySlip,
+    required this.isAlreadyControlled,
+  });
 
   @override
   State<StockCountScreen> createState() => _StockCountScreenState();
@@ -17,8 +24,8 @@ class StockCountScreen extends StatefulWidget {
 class _StockCountScreenState extends State<StockCountScreen> {
   final _searchController = TextEditingController();
   late final List<DeliverySlipItem> _items;
+  bool _isEditMode = false;
 
-  // Maps pour gérer les contrôleurs et focus de chaque article
   final Map<String, TextEditingController> _quantityControllers = {};
   final Map<String, FocusNode> _quantityFocusNodes = {};
 
@@ -26,19 +33,20 @@ class _StockCountScreenState extends State<StockCountScreen> {
   void initState() {
     super.initState();
     _items = widget.deliverySlip.items;
+    _isEditMode = !widget.isAlreadyControlled;
 
-    // Initialise un contrôleur et un focus node pour chaque article
     for (var item in _items) {
       _quantityControllers[item.id] = TextEditingController();
       _quantityFocusNodes[item.id] = FocusNode();
     }
 
-    // Donne le focus au premier article de la liste au démarrage
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_items.isNotEmpty) {
+    if (widget.isAlreadyControlled) {
+      _loadSavedCounts();
+    } else if (_items.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         _quantityFocusNodes[_items.first.id]?.requestFocus();
-      }
-    });
+      });
+    }
   }
 
   @override
@@ -47,6 +55,46 @@ class _StockCountScreenState extends State<StockCountScreen> {
     _quantityControllers.values.forEach((controller) => controller.dispose());
     _quantityFocusNodes.values.forEach((node) => node.dispose());
     super.dispose();
+  }
+
+  Future<void> _loadSavedCounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedDataString = prefs.getString('control_${widget.deliverySlip.id}');
+    if (savedDataString != null) {
+      final savedCounts = Map<String, int>.from(json.decode(savedDataString));
+      for (var item in _items) {
+        _quantityControllers[item.id]?.text = (savedCounts[item.id] ?? 0).toString();
+      }
+    }
+  }
+
+  Future<void> _saveAndGoToReport() async {
+    final prefs = await SharedPreferences.getInstance();
+    final countsToSave = <String, int>{};
+    for (var item in _items) {
+      final textValue = _quantityControllers[item.id]?.text ?? '0';
+      item.quantiteComptee = int.tryParse(textValue) ?? 0;
+      countsToSave[item.id] = item.quantiteComptee;
+    }
+    await prefs.setString('control_${widget.deliverySlip.id}', json.encode(countsToSave));
+
+    final controlledIds = prefs.getStringList('controlled_slip_ids') ?? [];
+    if (!controlledIds.contains(widget.deliverySlip.id)) {
+      controlledIds.add(widget.deliverySlip.id);
+      await prefs.setStringList('controlled_slip_ids', controlledIds);
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => InventoryReportScreen(
+            items: _items,
+            slip: widget.deliverySlip,
+          ),
+        ),
+      );
+    }
   }
 
   void _onScanSubmitted(String cip) {
@@ -65,104 +113,102 @@ class _StockCountScreenState extends State<StockCountScreen> {
 
   void _focusNext(int currentIndex) {
     if (currentIndex < _items.length - 1) {
-      // Passe au champ suivant
       final nextItemId = _items[currentIndex + 1].id;
       _quantityFocusNodes[nextItemId]?.requestFocus();
     } else {
-      // Si c'est le dernier champ, on retire le focus (ferme le clavier)
       _quantityFocusNodes[_items[currentIndex].id]?.unfocus();
     }
   }
 
-  void _goToReport() {
-    // Met à jour les quantités comptées dans la liste à partir des contrôleurs
-    for (var item in _items) {
-      final textValue = _quantityControllers[item.id]?.text ?? '0';
-      item.quantiteComptee = int.tryParse(textValue) ?? 0;
-    }
-
-    // Navigue vers l'écran de rapport en passant la liste mise à jour
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => InventoryReportScreen(items: _items),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final canModify = Provider.of<AppConfigProvider>(context).allowControlModification;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Contrôle BL: ${widget.deliverySlip.referenceLivraison}'),
+        actions: [
+          if (!_isEditMode)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: 'Modifier le contrôle',
+              onPressed: canModify
+                  ? () {
+                setState(() {
+                  _isEditMode = true;
+                  if (_items.isNotEmpty) {
+                    _quantityFocusNodes[_items.first.id]?.requestFocus();
+                  }
+                });
+              }
+                  : null,
+            ),
+        ],
       ),
       body: Column(
         children: [
-          _buildSearchBar(),
-          Expanded(child: _buildItemsList()),
-          _buildFooter(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: TextField(
-        controller: _searchController,
-        decoration: const InputDecoration(
-          labelText: 'Scanner pour sauter à un produit',
-          prefixIcon: Icon(Icons.qr_code_scanner),
-          border: OutlineInputBorder(),
-        ),
-        onSubmitted: _onScanSubmitted,
-      ),
-    );
-  }
-
-  Widget _buildItemsList() {
-    return ListView.builder(
-      itemCount: _items.length,
-      itemBuilder: (context, index) {
-        final item = _items[index];
-        final isLastItem = index == _items.length - 1;
-
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: ListTile(
-            title: Text(item.produit.name),
-            subtitle: Text('CIP: ${item.produit.cip}'),
-            trailing: SizedBox(
-              width: 90,
-              child: TextField(
-                controller: _quantityControllers[item.id],
-                focusNode: _quantityFocusNodes[item.id],
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                decoration: const InputDecoration(
-                  labelText: 'Compté',
-                  border: OutlineInputBorder(),
-                ),
-                textInputAction: isLastItem ? TextInputAction.done : TextInputAction.next,
-                onEditingComplete: () => _focusNext(index),
+          // --- Contenu de _buildSearchBar ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                labelText: 'Scanner pour sauter à un produit',
+                prefixIcon: Icon(Icons.qr_code_scanner),
+                border: OutlineInputBorder(),
               ),
+              onSubmitted: _onScanSubmitted,
             ),
           ),
-        );
-      },
-    );
-  }
+          // --- Contenu de _buildItemsList ---
+          Expanded(
+            child: ListView.builder(
+              itemCount: _items.length,
+              itemBuilder: (context, index) {
+                final item = _items[index];
+                final isLastItem = index == _items.length - 1;
 
-  Widget _buildFooter() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ElevatedButton(
-        onPressed: _goToReport,
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 50),
-        ),
-        child: const Text('Terminer & Voir le Rapport'),
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: ListTile(
+                    title: Text(item.produit.name),
+                    subtitle: Text('CIP: ${item.produit.cip}'),
+                    trailing: SizedBox(
+                      width: 90,
+                      child: TextField(
+                        controller: _quantityControllers[item.id],
+                        focusNode: _quantityFocusNodes[item.id],
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        enabled: _isEditMode,
+                        decoration: InputDecoration(
+                          labelText: 'Compté',
+                          border: const OutlineInputBorder(),
+                          filled: !_isEditMode,
+                          fillColor: Colors.grey[200],
+                        ),
+                        textInputAction: isLastItem ? TextInputAction.done : TextInputAction.next,
+                        onEditingComplete: () => _focusNext(index),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // --- Contenu de _buildFooter ---
+          if (_isEditMode)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton(
+                onPressed: _saveAndGoToReport,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text('Terminer & Voir le Rapport'),
+              ),
+            ),
+        ],
       ),
     );
   }

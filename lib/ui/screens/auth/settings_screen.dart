@@ -116,8 +116,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Fluttertoast.showToast(msg: "Configuration enregistrée avec succès !");
 
     // Redirige vers l'écran de connexion en remplaçant l'écran actuel
+    // On vérifie que le widget est toujours "monté" avant de naviguer
     if (mounted) {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
+      // Si c'est la première configuration, on remplace l'écran, sinon on fait un simple pop.
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+      }
     }
   }
 
@@ -134,7 +140,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configuration du Serveur'),
+        title: const Text('Configuration'),
         backgroundColor: Theme.of(context).primaryColor,
       ),
       body: SingleChildScrollView(
@@ -145,49 +151,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Veuillez configurer les informations de connexion à votre serveur.',
-                style: TextStyle(fontSize: 16),
+                'Paramètres de connexion au serveur',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
 
-              // Champ IP Locale
+              // --- Champs de connexion ---
               TextFormField(
                 controller: _localIpController,
                 decoration: InputDecoration(
                   labelText: 'Adresse IP Locale *',
                   border: const OutlineInputBorder(),
                   suffixIcon: _isPingingLocal
-                      ? const Padding(padding: EdgeInsets.all(10.0), child: CircularProgressIndicator())
+                      ? const Padding(padding: EdgeInsets.all(10.0), child: CircularProgressIndicator(strokeWidth: 2))
                       : IconButton(
                     icon: const Icon(Icons.network_check),
                     onPressed: () => _pingServer(true),
                   ),
                 ),
-                keyboardType: TextInputType.phone,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (value) => value!.isEmpty ? 'Champ requis' : null,
               ),
               Text(_localPingResult, style: TextStyle(color: _localPingResult.contains('Succès') ? Colors.green : Colors.red)),
               const SizedBox(height: 16),
 
-              // Champ IP Distante
               TextFormField(
                 controller: _distantIpController,
                 decoration: InputDecoration(
                   labelText: 'Adresse IP Distante',
                   border: const OutlineInputBorder(),
                   suffixIcon: _isPingingDistant
-                      ? const Padding(padding: EdgeInsets.all(10.0), child: CircularProgressIndicator())
+                      ? const Padding(padding: EdgeInsets.all(10.0), child: CircularProgressIndicator(strokeWidth: 2))
                       : IconButton(
                     icon: const Icon(Icons.network_check),
                     onPressed: () => _pingServer(false),
                   ),
                 ),
-                keyboardType: TextInputType.phone,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               Text(_distantPingResult, style: TextStyle(color: _distantPingResult.contains('Succès') ? Colors.green : Colors.red)),
               const SizedBox(height: 16),
 
-              // Champ Port
               TextFormField(
                 controller: _portController,
                 decoration: const InputDecoration(labelText: 'Port *', border: OutlineInputBorder()),
@@ -196,12 +200,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Champ Nom de l'application
               TextFormField(
                 controller: _appNameController,
                 decoration: const InputDecoration(labelText: 'Nom Application Serveur *', border: OutlineInputBorder()),
                 validator: (value) => value!.isEmpty ? 'Champ requis' : null,
               ),
+              const SizedBox(height: 32),
+
+              // ######################################################
+              // ##                  NOUVELLE SECTION                  ##
+              // ######################################################
+              const Text(
+                'Permissions',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 2,
+                child: Consumer<AppConfigProvider>(
+                    builder: (context, configProvider, child) {
+                      return SwitchListTile(
+                        title: const Text('Autoriser la modification des contrôles'),
+                        value: configProvider.allowControlModification,
+                        onChanged: (bool value) {
+                          configProvider.setAllowControlModification(value);
+                          Fluttertoast.showToast(
+                            msg: value ? "Modification activée" : "Modification désactivée",
+                          );
+                        },
+                        activeColor: Theme.of(context).primaryColor,
+                      );
+                    }
+                ),
+              ),
+              // ######################################################
+              // ##                FIN NOUVELLE SECTION                ##
+              // ######################################################
+
               const SizedBox(height: 32),
 
               // Bouton Enregistrer

@@ -1,45 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Énumération pour le mode de connexion
+// Énumération pour définir clairement le mode de connexion
 enum ConnectionMode { local, distant }
 
 class AppConfigProvider with ChangeNotifier {
-  // Clés pour le stockage dans SharedPreferences
+  // Clés statiques pour un accès sécurisé et sans faute de frappe à SharedPreferences
   static const String _localIpKey = 'localApiAddress';
   static const String _distantIpKey = 'distantApiAddress';
   static const String _portKey = 'apiPort';
   static const String _appNameKey = 'appName';
   static const String _connectionModeKey = 'connectionMode';
+  static const String _allowModificationKey = 'allowControlModification';
 
-  // Variables d'état privées
+  // Variables d'état privées avec des valeurs par défaut
   String _localApiAddress = '';
   String _distantApiAddress = '';
-  String _apiPort = '8080'; // Valeur par défaut
-  String _appName = 'prestige'; // Valeur par défaut
+  String _apiPort = '8080';
+  String _appName = 'prestige';
   ConnectionMode _connectionMode = ConnectionMode.local;
+  bool _allowControlModification = false;
 
-  // Getters publics pour accéder aux valeurs en lecture seule
+  // Getters publics pour permettre à l'UI de lire les valeurs sans les modifier
   String get localApiAddress => _localApiAddress;
   String get distantApiAddress => _distantApiAddress;
   String get apiPort => _apiPort;
   String get appName => _appName;
   ConnectionMode get connectionMode => _connectionMode;
+  bool get allowControlModification => _allowControlModification;
 
-  // Getter qui retourne l'URL de base actuelle en fonction du mode de connexion
+  /// Retourne l'URL de base de l'API actuellement utilisée en fonction du mode de connexion.
   String get currentApiUrl {
-    final address = _connectionMode == ConnectionMode.local ? _localApiAddress : _distantApiAddress;
+    final address = _connectionMode == ConnectionMode.local
+        ? _localApiAddress
+        : _distantApiAddress;
     if (address.isEmpty) return '';
     return "http://$address:$_apiPort/$_appName";
   }
 
-  // Vérifie si la configuration de base est faite
+  /// Vérifie si la configuration de base (l'IP locale) a été effectuée.
   bool isConfigured() {
-    // La configuration est considérée comme valide si l'IP locale est renseignée
     return _localApiAddress.isNotEmpty;
   }
 
-  // Charge la configuration depuis SharedPreferences au démarrage de l'app
+  /// Charge toutes les configurations depuis la mémoire du téléphone au démarrage de l'app.
   Future<void> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
     _localApiAddress = prefs.getString(_localIpKey) ?? '';
@@ -49,10 +53,12 @@ class AppConfigProvider with ChangeNotifier {
     _connectionMode = (prefs.getString(_connectionModeKey) ?? 'local') == 'local'
         ? ConnectionMode.local
         : ConnectionMode.distant;
-    notifyListeners(); // Notifie les auditeurs d'un changement
+    _allowControlModification = prefs.getBool(_allowModificationKey) ?? false;
+
+    notifyListeners(); // Informe les widgets que la configuration a été chargée
   }
 
-  // Sauvegarde la configuration dans SharedPreferences
+  /// Sauvegarde les paramètres de connexion du serveur.
   Future<void> saveConfig({
     required String localIp,
     required String distantIp,
@@ -71,10 +77,10 @@ class AppConfigProvider with ChangeNotifier {
     _apiPort = port;
     _appName = appName;
 
-    notifyListeners(); // Notifie que la configuration a changé
+    notifyListeners();
   }
 
-  // Change le mode de connexion (Local/Distant)
+  /// Change et sauvegarde le mode de connexion (Local/Distant).
   Future<void> setConnectionMode(ConnectionMode mode) async {
     if (_connectionMode != mode) {
       _connectionMode = mode;
@@ -82,5 +88,13 @@ class AppConfigProvider with ChangeNotifier {
       await prefs.setString(_connectionModeKey, mode == ConnectionMode.local ? 'local' : 'distant');
       notifyListeners();
     }
+  }
+
+  /// Active/Désactive et sauvegarde la permission de modifier les contrôles de stock.
+  Future<void> setAllowControlModification(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_allowModificationKey, value);
+    _allowControlModification = value;
+    notifyListeners();
   }
 }

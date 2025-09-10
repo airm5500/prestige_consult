@@ -1,34 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:prestigeconsult/models/delivery_slip.dart';
 import 'package:prestigeconsult/models/delivery_slip_item.dart';
 
 class InventoryReportScreen extends StatelessWidget {
   final List<DeliverySlipItem> items;
+  final DeliverySlip slip;
 
-  const InventoryReportScreen({super.key, required this.items});
-
-  // Helper pour déterminer la couleur de la ligne en fonction de l'écart
-  Color _getDiscrepancyColor(int discrepancy) {
-    if (discrepancy < 0) {
-      return Colors.red.shade100; // Moins compté que le stock théorique
-    } else if (discrepancy > 0) {
-      return Colors.orange.shade100; // Plus compté que le stock théorique
-    }
-    return Colors.transparent; // Correspondance exacte
-  }
-
-  // Helper pour le style du texte de l'écart
-  TextStyle _getDiscrepancyTextStyle(int discrepancy) {
-    if (discrepancy < 0) {
-      return const TextStyle(color: Colors.red, fontWeight: FontWeight.bold);
-    } else if (discrepancy > 0) {
-      return const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold);
-    }
-    return const TextStyle(color: Colors.green, fontWeight: FontWeight.bold);
-  }
+  const InventoryReportScreen({
+    super.key,
+    required this.items,
+    required this.slip
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Calculs pour la carte de résumé
+    // --- Fonctions Helper déplacées ici pour plus de clarté ---
+    Color getDiscrepancyColor(int discrepancy) {
+      if (discrepancy < 0) return Colors.red.shade100;
+      if (discrepancy > 0) return Colors.orange.shade100;
+      return Colors.transparent;
+    }
+
+    TextStyle getDiscrepancyTextStyle(int discrepancy) {
+      if (discrepancy < 0) return const TextStyle(color: Colors.red, fontWeight: FontWeight.bold);
+      if (discrepancy > 0) return const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold);
+      return const TextStyle(color: Colors.green, fontWeight: FontWeight.bold);
+    }
+    // --- Fin des fonctions Helper ---
+
     int totalTheoretical = items.fold(0, (sum, item) => sum + item.stockTheorique);
     int totalCounted = items.fold(0, (sum, item) => sum + item.quantiteComptee);
     int discrepancyLines = items.where((item) => item.stockTheorique != item.quantiteComptee).length;
@@ -42,66 +41,74 @@ class InventoryReportScreen extends StatelessWidget {
           padding: const EdgeInsets.all(8.0),
           child: Column(
             children: [
-              _buildSummaryCard(totalTheoretical, totalCounted, discrepancyLines),
+              // --- Contenu de _buildSummaryCard ---
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                          'Contrôle effectué par : ${slip.userName}',
+                          style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)
+                      ),
+                      const Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            children: [
+                              Text(totalTheoretical.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              const Text('Stock Théorique', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              Text(totalCounted.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              const Text('Stock Compté', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              Text(discrepancyLines.toString(), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: discrepancyLines > 0 ? Colors.red : Colors.green)),
+                              const Text('Lignes en écart', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
-              _buildDataTable(),
+              // --- Contenu de _buildDataTable ---
+              Card(
+                elevation: 2,
+                child: DataTable(
+                  columnSpacing: 16,
+                  columns: const [
+                    DataColumn(label: Text('Produit', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Théo.', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                    DataColumn(label: Text('Compté', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                    DataColumn(label: Text('Écart', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                  ],
+                  rows: items.map((item) {
+                    final discrepancy = item.quantiteComptee - item.stockTheorique;
+                    return DataRow(
+                      color: MaterialStateProperty.all(getDiscrepancyColor(discrepancy)),
+                      cells: [
+                        DataCell(Text(item.produit.name)),
+                        DataCell(Text(item.stockTheorique.toString())),
+                        DataCell(Text(item.quantiteComptee.toString())),
+                        DataCell(Text(discrepancy.toString(), style: getDiscrepancyTextStyle(discrepancy))),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(int theoretical, int counted, int linesWithIssues) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildSummaryItem('Stock Théorique', theoretical.toString()),
-            _buildSummaryItem('Stock Compté', counted.toString()),
-            _buildSummaryItem('Lignes en écart', linesWithIssues.toString(),
-                color: linesWithIssues > 0 ? Colors.red : Colors.green),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryItem(String label, String value, {Color color = Colors.black}) {
-    return Column(
-      children: [
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: const TextStyle(color: Colors.grey)),
-      ],
-    );
-  }
-
-  Widget _buildDataTable() {
-    return Card(
-      elevation: 2,
-      child: DataTable(
-        columnSpacing: 16,
-        columns: const [
-          DataColumn(label: Text('Produit', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Théo.', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('Compté', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('Écart', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-        ],
-        rows: items.map((item) {
-          final discrepancy = item.quantiteComptee - item.stockTheorique;
-          return DataRow(
-            color: MaterialStateProperty.all(_getDiscrepancyColor(discrepancy)),
-            cells: [
-              DataCell(Text(item.produit.name)),
-              DataCell(Text(item.stockTheorique.toString())),
-              DataCell(Text(item.quantiteComptee.toString())),
-              DataCell(Text(discrepancy.toString(), style: _getDiscrepancyTextStyle(discrepancy))),
-            ],
-          );
-        }).toList(),
       ),
     );
   }

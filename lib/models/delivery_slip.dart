@@ -1,13 +1,15 @@
-import 'package:prestigeconsult/models/delivery_slip_item.dart';
+// ... importations
 import 'package:prestigeconsult/models/nested_fournisseur.dart';
+import 'package:prestigeconsult/models/delivery_slip_item.dart';
 
-// Représente un Bon de Livraison complet
 class DeliverySlip {
   final String id;
   final String referenceLivraison;
   final String dateLivraison;
   final NestedFournisseur fournisseur;
   final List<DeliverySlipItem> items;
+  final double totalHT; // <-- NOUVEAU CHAMP
+  final String userName;  // <-- NOUVEAU CHAMP
 
   DeliverySlip({
     required this.id,
@@ -15,6 +17,8 @@ class DeliverySlip {
     required this.dateLivraison,
     required this.fournisseur,
     required this.items,
+    required this.totalHT,   // <-- NOUVEAU CHAMP
+    required this.userName,  // <-- NOUVEAU CHAMP
   });
 
   factory DeliverySlip.fromJson(Map<String, dynamic> json) {
@@ -31,6 +35,8 @@ class DeliverySlip {
       dateLivraison: json['dtDATELIVRAISON'] ?? 'N/A',
       fournisseur: NestedFournisseur.fromJson(json['fournisseur'] ?? {}),
       items: itemsList,
+      totalHT: (json['intHTTC'] ?? 0).toDouble(), // <-- NOUVEAU CHAMP
+      userName: json['userName'] ?? 'N/A',      // <-- NOUVEAU CHAMP
     );
   }
 }
