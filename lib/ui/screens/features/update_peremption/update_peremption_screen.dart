@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:prestigeconsult/core/api/api_service.dart';
 import 'package:prestigeconsult/core/logic/base_screen_logic.dart';
 import 'package:prestigeconsult/models/product_search_result.dart';
 import 'package:prestigeconsult/providers/app_config_provider.dart';
+import 'package:prestigeconsult/ui/screens/features/update_peremption/update_date_dialog.dart';
 
 class UpdatePeremptionScreen extends StatefulWidget {
   const UpdatePeremptionScreen({super.key});
@@ -17,14 +16,12 @@ class UpdatePeremptionScreen extends StatefulWidget {
 
 class _UpdatePeremptionScreenState extends State<UpdatePeremptionScreen> with BaseScreenLogic {
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   final _apiService = ApiService();
   Timer? _debounce;
 
-  // --- State Variables ---
   List<ProductSearchResult> _searchResults = [];
   bool _showResultsList = false;
-  ProductSearchResult? _selectedProduct;
-  DateTime? _newExpirationDate;
 
   @override
   void initState() {
@@ -36,6 +33,7 @@ class _UpdatePeremptionScreenState extends State<UpdatePeremptionScreen> with Ba
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -57,80 +55,48 @@ class _UpdatePeremptionScreenState extends State<UpdatePeremptionScreen> with Ba
     final endpoint = '/produit-search/fiche?search_value=$query&limit=10';
     final response = await runApiCall(
           () => _apiService.get(endpoint, Provider.of<AppConfigProvider>(context, listen: false)),
-      showToastOnError: false, // On gère l'erreur silencieusement
+      showToastOnError: false,
     );
 
-    if (response != null && response['results'] is List) {
+    if (mounted && response != null && response['results'] is List) {
+      final results = response['results'].map<ProductSearchResult>((json) => ProductSearchResult.fromJson(json)).toList();
       setState(() {
-        _searchResults = response['results'].map<ProductSearchResult>((json) => ProductSearchResult.fromJson(json)).toList();
+        _searchResults = results;
         _showResultsList = true;
       });
+
+      // OPTIMISATION SCAN: Si un seul résultat, on le sélectionne automatiquement
+      if (_searchResults.length == 1) {
+        _onProductSelected(_searchResults.first);
+      }
     }
   }
 
-  void _onProductSelected(ProductSearchResult product) {
+  Future<void> _onProductSelected(ProductSearchResult product) async {
     setState(() {
-      _selectedProduct = product;
-      _searchController.text = product.name; // Affiche le nom dans la barre de recherche
-      _searchResults = [];
-      _showResultsList = false;
+      _showResultsList = false; // Cache la liste des résultats
     });
-    // Ferme le clavier
-    FocusScope.of(context).unfocus();
-  }
 
-  Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
+    final success = await showDialog<bool>(
       context: context,
-      initialDate: _newExpirationDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2040),
-      locale: const Locale('fr', 'FR'), // Assure que le calendrier est en français
+      barrierDismissible: false, // L'utilisateur doit choisir "Annuler" ou "Valider"
+      builder: (_) => UpdateDateDialog(product: product),
     );
-    if (picked != null && picked != _newExpirationDate) {
-      setState(() {
-        _newExpirationDate = picked;
-      });
-    }
-  }
 
-  Future<void> _performUpdate() async {
-    if (_selectedProduct == null || _newExpirationDate == null) {
-      Fluttertoast.showToast(msg: "Veuillez sélectionner un produit et une date.");
-      return;
-    }
-
-    final dateFormatted = DateFormat('yyyy-MM-dd').format(_newExpirationDate!);
-    final endpoint = '/fichearticle/dateperemption/${_selectedProduct!.id}/$dateFormatted';
-
-    // Pour une requête PUT sans corps, on passe un body vide.
-    final response = await runApiCall(() => _apiService.put(endpoint, Provider.of<AppConfigProvider>(context, listen: false), body: {}));
-
-    if (response != null && response['success'] == true) {
-      Fluttertoast.showToast(
-        msg: "Date mise à jour avec succès !",
-        backgroundColor: Colors.green,
-      );
-      // Réinitialise l'écran pour la prochaine recherche
+    // Si la mise à jour a réussi (dialogue a retourné true), on réinitialise l'écran
+    if (success == true) {
       _resetScreen();
-    } else {
-      Fluttertoast.showToast(
-        msg: "Échec de la mise à jour.",
-        backgroundColor: Colors.red,
-      );
     }
   }
 
   void _resetScreen() {
+    _searchController.clear();
     setState(() {
-      _searchController.clear();
       _searchResults = [];
       _showResultsList = false;
-      _selectedProduct = null;
-      _newExpirationDate = null;
     });
-    // Remet le focus sur la barre de recherche pour un enchaînement rapide
-    FocusScope.of(context).requestFocus(FocusNode());
+    // Remet le focus sur la barre de recherche pour le prochain scan/recherche
+    _searchFocusNode.requestFocus();
   }
 
   @override
@@ -138,115 +104,60 @@ class _UpdatePeremptionScreenState extends State<UpdatePeremptionScreen> with Ba
     return Scaffold(
       appBar: AppBar(title: const Text('Mise à Jour Péremption')),
       body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(), // Permet de fermer le clavier en touchant l'écran
+        onTap: () => FocusScope.of(context).unfocus(),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // --- Barre de recherche ---
-              _buildSearchBar(),
-
-              // --- Liste de résultats (superposée) ---
-              if (_showResultsList) _buildResultsOverlay(),
-
-              const SizedBox(height: 24),
-
-              // --- Zone de sélection ---
-              _buildSelectionArea(),
-
-              const Spacer(), // Pousse le bouton vers le bas
-
-              // --- Bouton de validation ---
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('Mettre à jour'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  textStyle: const TextStyle(fontSize: 18),
+              TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Scanner ou rechercher un produit...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(icon: const Icon(Icons.clear), onPressed: _resetScreen)
+                      : null,
                 ),
-                onPressed: (_selectedProduct != null && _newExpirationDate != null && !isLoading)
-                    ? _performUpdate
-                    : null, // Le bouton est désactivé si rien n'est sélectionné ou en cours de chargement
               ),
-              if(isLoading) const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator())),
+
+              // --- Zone d'affichage des résultats ---
+              Expanded(
+                child: Stack(
+                  children: [
+                    // On peut mettre un fond informatif ici si on le souhaite
+                    if (!_showResultsList)
+                      const Center(child: Text('En attente de recherche...')),
+
+                    // --- Liste de résultats (superposée) ---
+                    if (_showResultsList)
+                      Card(
+                        margin: const EdgeInsets.only(top: 8.0),
+                        elevation: 4,
+                        child: isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _searchResults.length,
+                          itemBuilder: (context, index) {
+                            final product = _searchResults[index];
+                            return ListTile(
+                              title: Text(product.name),
+                              subtitle: Text('CIP: ${product.cip} | Stock: ${product.stock}'),
+                              onTap: () => _onProductSelected(product),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return TextField(
-      controller: _searchController,
-      autofocus: true,
-      decoration: InputDecoration(
-        labelText: 'Scanner ou rechercher un produit...',
-        prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        suffixIcon: _searchController.text.isNotEmpty
-            ? IconButton(icon: const Icon(Icons.clear), onPressed: _resetScreen)
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildResultsOverlay() {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 200),
-      child: Card(
-        elevation: 4,
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView.builder(
-          shrinkWrap: true,
-          itemCount: _searchResults.length,
-          itemBuilder: (context, index) {
-            final product = _searchResults[index];
-            return ListTile(
-              title: Text(product.name),
-              subtitle: Text('CIP: ${product.cip} | Stock: ${product.stock}'),
-              onTap: () => _onProductSelected(product),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectionArea() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Produit Sélectionné', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const Divider(),
-            _selectedProduct == null
-                ? const Text('En attente de sélection...')
-                : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_selectedProduct!.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('Péremption actuelle: ${_selectedProduct!.datePeremption}'),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: TextButton.icon(
-                icon: const Icon(Icons.calendar_today),
-                label: Text(
-                  _newExpirationDate == null
-                      ? 'Choisir une nouvelle date'
-                      : 'Nouvelle date: ${DateFormat('dd/MM/yyyy').format(_newExpirationDate!)}',
-                  style: const TextStyle(fontSize: 16),
-                ),
-                onPressed: _selectedProduct != null ? _selectDate : null,
-              ),
-            ),
-          ],
         ),
       ),
     );
