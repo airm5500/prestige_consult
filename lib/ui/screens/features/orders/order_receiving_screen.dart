@@ -37,8 +37,12 @@ class _OrderReceivingScreenState extends State<OrderReceivingScreen> with BaseSc
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
-    _quantityControllers.values.forEach((controller) => controller.dispose());
-    _quantityFocusNodes.values.forEach((node) => node.dispose());
+    for (var controller in _quantityControllers.values) {
+      controller.dispose();
+    }
+    for (var node in _quantityFocusNodes.values) {
+      node.dispose();
+    }
     super.dispose();
   }
 
@@ -74,7 +78,7 @@ class _OrderReceivingScreenState extends State<OrderReceivingScreen> with BaseSc
       _quantityFocusNodes[item.id]?.requestFocus();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Produit non trouvé dans cette commande.'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Produit non trouvé dans cette commande.'), backgroundColor: Colors.red),
       );
     }
     _searchController.clear();
@@ -102,7 +106,7 @@ class _OrderReceivingScreenState extends State<OrderReceivingScreen> with BaseSc
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Réception Commande'),
+        title: const Text('Réception Commande'),
       ),
       body: Column(
         children: [

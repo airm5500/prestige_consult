@@ -93,7 +93,7 @@ class OrderSummaryScreen extends StatelessWidget {
         rows: items.map((item) {
           final discrepancy = item.quantityReceived - item.quantityOrdered;
           return DataRow(
-            color: MaterialStateProperty.all(_getDiscrepancyColor(discrepancy)),
+            color: WidgetStateProperty.all(_getDiscrepancyColor(discrepancy)),
             cells: [
               DataCell(Text(item.productName)),
               DataCell(Text(item.quantityOrdered.toString())),

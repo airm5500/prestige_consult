@@ -52,8 +52,12 @@ class _StockCountScreenState extends State<StockCountScreen> {
   @override
   void dispose() {
     _searchController.dispose();
-    _quantityControllers.values.forEach((controller) => controller.dispose());
-    _quantityFocusNodes.values.forEach((node) => node.dispose());
+    for (var controller in _quantityControllers.values) {
+      controller.dispose();
+    }
+    for (var node in _quantityFocusNodes.values) {
+      node.dispose();
+    }
     super.dispose();
   }
 
@@ -105,7 +109,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
       _quantityFocusNodes[_items[index].id]?.requestFocus();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Produit non trouvé sur ce BL.'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Produit non trouvé sur ce BL.'), backgroundColor: Colors.orange),
       );
     }
     _searchController.clear();
